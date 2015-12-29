@@ -1,0 +1,338 @@
+# face-detection
+import java.io.File;
+import java.awt.Color;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.image.RenderedImage;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfRect;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
+import org.opencv.highgui.VideoCapture;
+import org.opencv.objdetect.CascadeClassifier;
+
+public class WebCam extends JPanel implements ActionListener{
+   private BufferedImage image;
+   public JButton button = new JButton("capture");
+   static int rectX = 0;
+   static int rectY = 0;
+   static int rectW = 0;
+   static int rectH = 0;
+   static BufferedImage kafa = null;
+   static Point yes;
+   static Point yes2;
+   int count = 0;
+   String imageName = "";
+   static boolean check1 = true;
+   boolean check2 = true;
+   static int average = 0;
+   static final int THRESHOLD = 80000;
+   ArrayList<RenderedImage> list = new ArrayList<RenderedImage>();
+   public WebCam() {
+       super();
+       button.addActionListener((ActionListener) this);
+       this.add(button);
+   }
+   public BufferedImage getImage() {
+       return image;
+   }
+   public void setimage(BufferedImage newimage) {
+        image = newimage;
+    }
+   @Override
+   public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (this.image == null) {
+            return;
+        }
+        g.drawImage(this.image, 0, 0, this.image.getWidth(), this.image.getHeight(), null);
+    }
+   public static void main(String[] args) throws Exception {
+       JFrame frame = new JFrame("face capture");
+       frame.setSize(640,480);
+       frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+       System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+       CascadeClassifier faceDetector = new CascadeClassifier("C:\\opencv\\sources\\data\\lbpcascades\\lbpcascade_frontalface.xml");
+       WebCam anan = new WebCam();
+       frame.add(anan);
+       frame.setVisible(true);
+       Mat webcam_image = new Mat();
+       MatToBufImg mat2Buf = new MatToBufImg();
+       VideoCapture capture = null;
+       try {
+           capture = new VideoCapture(0);
+       }
+       catch (Exception e){
+       }
+       if (capture.open(0)) {
+           while (true) {
+                capture.read(webcam_image);
+                if (!webcam_image.empty()) {
+                    frame.setSize(webcam_image.width(), webcam_image.height());
+                    MatOfRect faceDetections = new MatOfRect();
+                    faceDetector.detectMultiScale(webcam_image, faceDetections);
+                    for (Rect rect : faceDetections.toArray()) {
+                        yes = new Point(rect.x, rect.y);
+                        yes2 = new Point(rect.x + rect.width, rect.y + rect.height);
+                        Core.rectangle(webcam_image,yes, yes2, new Scalar(0, 255, 0));
+// mat2Buf, mat2Buf);
+                        rectX = (int)yes.x;
+                        rectY = (int)yes.y;
+                        rectW = (int)Math.abs(yes.x-yes2.x);
+                        rectH = (int)Math.abs(yes.y-yes2.y);;
+                        System.out.println(rectX);
+                        System.out.println(rectY);
+                        System.out.println(rectW);
+                        System.out.println(rectH);
+                    }
+                    System.out.println("...............face detected: " + faceDetections.toArray().length);
+                    if (faceDetections.toArray().length == 0) {
+                        System.out.println("Face not detected!");
+                    }
+                    mat2Buf.setMatrix(webcam_image, ".jpg");
+                    anan.setimage(mat2Buf.getBufferedImage());
+                    anan.repaint();
+                    
+                }
+                else {
+                    System.out.println("problem");
+                }
+           }
+       }
+       capture.release();
+       
+       
+   }
+   @Override
+   public void actionPerformed(ActionEvent e){
+        Rectangle crop = new Rectangle(rectX, rectY, rectW, rectH);
+        System.out.println("hellohellohellohellohello");
+        File f = null;
+        BufferedImage anlikResim = null;
+        String ans = JOptionPane.showInputDialog(null, "name");
+        System.out.println(ans);
+        BufferedImage bi = image;
+        Graphics2D g = null;
+        ImageIcon ii = null;
+        Image newimg = bi.getScaledInstance(320, 220, java.awt.Image.SCALE_SMOOTH);
+        ii = new ImageIcon(newimg);
+        Image i2 = ii.getImage();
+        image = new BufferedImage(i2.getWidth(null), i2.getHeight(null), BufferedImage.SCALE_SMOOTH);
+        image.getGraphics().drawImage(i2, 0, 0, null);
+        imageName = ans;
+        RenderedImage resim = null;
+        if (i2 instanceof RenderedImage) {
+            resim = (RenderedImage) i2;
+        } else {
+           
+                anlikResim = new BufferedImage(
+                        ii.getIconWidth(),
+                        ii.getIconHeight(),
+                        BufferedImage.SCALE_SMOOTH);
+            g = anlikResim.createGraphics();
+            g.drawImage(i2, 0, 0, null);
+            g.dispose();
+            resim = anlikResim;
+        }
+        String ans3 = JOptionPane.showInputDialog(null, "database or face to recognize");
+        if (ans3.equals("database")) {
+        try {
+             BufferedImage kafa = getFace((BufferedImage) resim,crop);
+             ImageIO.write(kafa, "jpg", new File("C:\\Users\\SelinT\\Documents\\NetBeansProjects\\KENDI PROJEM\\src\\baban\\" + imageName));
+         } catch (IOException anan) {
+
+         }
+        }
+        else if (ans3.equals("face to recognize")) {
+            try {
+             //ImageIO.write(resim, "bmp", new File("C:\\Users\\SelinT\\Documents\\NetBeansProjects\\KENDI PROJEM2\\src\\image.jpg"));
+             BufferedImage kafa = getFace((BufferedImage) resim, crop);
+             ImageIO.write(kafa, "jpg", new File("C:\\Users\\SelinT\\Documents\\NetBeansProjects\\KENDI PROJEM\\src\\FACERECOG\\insan.jpg"));
+         } catch (IOException anan) {
+
+         }
+        }
+        String ans2 = JOptionPane.showInputDialog(null, "continue building database?");
+        if (ans2.equals("yes")) {
+            
+        }
+        else {
+            check1 = false;
+        }
+        if (!(check1)) {
+           recognize();
+           System.exit(1);
+       }
+   }
+   public static void recognize() {
+     if (!(check1)) {
+            BufferedImage img = null;
+        int count = 1;
+        ArrayList<int []> list = new ArrayList<int []>();
+        try {
+            img = ImageIO.read(new File("C:\\Users\\SelinT\\Documents\\NetBeansProjects\\KENDI PROJEM\\src\\FACERECOG\\insan.jpg"));
+            File folder = new File("C:\\Users\\SelinT\\Documents\\NetBeansProjects\\KENDI PROJEM\\src\\baban");
+            File[] listOfFiles = folder.listFiles();
+            for (File fe : listOfFiles) {
+                list.add(ImgTo1Array(ImageIO.read(fe)));
+                count++;
+            }
+        ArrayList<Integer> scores = new ArrayList<Integer>();
+        setAverage(img);
+        for (int i = 0; i < list.size(); i++) {
+            list.set(i,Deviate(list.get(i)));
+        }
+        int a = 0;
+        int [] realPic = Deviate(ImgTo1Array(img));
+        for (int i = 0; i < realPic.length; i++) {
+            a += realPic[i];
+        }
+        int index = 141;
+        int minimum = 1000000000;
+        for (int i = 0; i < list.size(); i++) {
+            if (Math.abs(a - getTotal(list.get(i))) < minimum && Math.abs(a - getTotal(list.get(i))) < THRESHOLD ) {
+                minimum = a - getTotal(list.get(i));
+                index = i;
+            }
+        }
+        if (index == 141) {
+           System.out.println("Face does not match database"); 
+        }
+        else {
+        System.out.println("And the face is: " + listOfFiles[index].getName());
+        }
+        }  
+     catch (IOException er) {
+            }
+   }
+   }
+   public static int [] gray1Scale(BufferedImage e) {
+        int total = 0;
+        int [] picture1 = ImgTo1Array(e);
+        for (int i = 0; i < 200*200; i++) {
+            total += picture1[i];
+        }
+        int average1 = total/(200*200);
+        //convert to gray scale
+        for (int i = 0; i < 200*200; i++) {
+            if (picture1[i] < average1) {
+                picture1[i] = 0;
+            }
+            else {
+                picture1[i] = 1;
+            }
+        }
+        return picture1;
+    }
+    public static int [][] gray2Scale(BufferedImage e) {
+        int total = 0;
+        int [][] picture1 = ImgTo2Array(e);
+        for (int i = 0; i < 200; i++) {
+            for (int u = 0; u < 200; u++) {
+                total += picture1[i][u];
+            }
+        }
+        int average1 = total/(200*200);
+        //convert to gray scale
+        for (int i = 0; i < 200; i++) {
+            for (int u = 0; u < 200; u++) {
+                if (picture1[i][u] < average1) {
+                    picture1[i][u] = 0;
+                }
+                else {
+                    picture1[i][u] = 1;
+                }
+            }
+        }
+        return picture1;
+    }
+    public static int [] ImgTo1Array(BufferedImage e) {
+        int [][] matrix = ImgTo2Array(e);
+        //getRGBvalues of e
+
+        //convert it into a 1 dimensional array
+        int [] picture1 = new int[e.getHeight()*e.getWidth()];
+        int count = 0;
+        for (int i = 0; i < e.getHeight(); i++) {
+            for (int u = 0; u < e.getWidth(); u++) {
+                picture1[count] = matrix[i][u];
+                count++;
+            }
+        }
+        return picture1;
+    }
+    public static int [][] ImgTo2Array(BufferedImage e) {
+        int [][] matrix = new int[e.getHeight()][e.getWidth()];        //getRGBvalues of e
+        for (int i = 0; i < e.getHeight(); i++) {
+            for (int u = 0; u < e.getWidth(); u++) {
+                int rgba = e.getRGB(i,u);
+                Color col = new Color(rgba, true);
+                int r = col.getRed();
+                int g = col.getGreen();
+                int b = col.getBlue();
+                matrix[i][u] = (r+g+b) / 3;
+            }
+        }
+        return matrix;
+    }
+    public static void setAverage(BufferedImage e) {
+        int [] list = ImgTo1Array(e);
+        int total = 0;
+        for (int i = 0; i < list.length; i++) {
+            total += list[i];
+        }
+        average = total / list.length;
+    }
+    public static int [] Deviate(int [] e) {
+        int [] list = new int [e.length];
+        for (int i = 0; i < e.length; i++) {
+            list[i] = Math.abs(e[i] - average);
+        }
+        return list;
+    }
+    public static int getTotal (int [] e) {
+        int a = 0;
+        for (int i = 0; i < e.length; i++) {
+            a += e[i];
+        }
+        return a;
+    } 
+   public BufferedImage getFace(BufferedImage resim, Rectangle rect) {
+      BufferedImage croplu = null;
+      System.out.println(resim.getWidth());
+      System.out.println(resim.getHeight());
+       System.out.println(rectX/2 + "baban");
+       System.out.println(rectY/2);
+       System.out.println(rectW/2);
+       System.out.println(rectH/2);
+      croplu = resim.getSubimage(rectX/2,rectY/2,rectW/2,rectH/2);
+       return croplu;
+   }
+}
+   
